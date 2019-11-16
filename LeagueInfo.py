@@ -1,4 +1,5 @@
 import pandas as pd
+import matplotlib as plt
 
 
 #This is embarrasingly bad practice :(
@@ -30,7 +31,7 @@ red_avg.to_csv('red_avg.csv')
 red_blue = red_avg.join(blues_avg, lsuffix='_red', rsuffix='_blue')
 red_blue['games'] = red_blue['count_red'] + red_blue['count_blue']
 red_blue['win_pct'] = (red_blue['rResult'] + red_blue['bResult'])/red_blue['games']
-red_blue['goldDiff'] = (red_blue['summedGoldDiff_red'] + red_blue['summedGoldDiff_blue'])/red_blue['games']
+red_blue['goldDiff'] = (-red_blue['summedGoldDiff_red'] + red_blue['summedGoldDiff_blue'])/red_blue['games']
 red_blue['kills'] = (red_blue['kills_red'] + red_blue['kills_blue'])/red_blue['games']
 red_blue['towers'] = (red_blue['towers_red'] + red_blue['towers_blue'])/red_blue['games']
 red_blue['inhibs'] = (red_blue['inhibs_red'] + red_blue['inhibs_blue'])/red_blue['games']
@@ -38,4 +39,39 @@ red_blue['dragons'] = (red_blue['dragons_red'] + red_blue['dragons_blue'])/red_b
 total_agg = red_blue[['games', 'win_pct', 'goldDiff', 'kills', 'towers', 'inhibs', 'dragons']]
 total_agg.rename_axis("team").to_csv('total_agg.csv')
 
-pby(['League', 'Year', 'Season', 'Type'])['redTeamTag'].value_counts())
+
+kills = total_agg.plot.scatter(x='kills',
+                     y='win_pct',
+                    c='DarkBlue', title = 'Win Pct vs Kills')
+kills.set_xlabel('Kills Per Game')
+kills.set_ylabel('Win Percentage')
+kills.get_figure().savefig('kill_corr.png')
+
+
+goldDiff = total_agg.plot.scatter(x='goldDiff',
+                     y='win_pct',
+                    c='DarkBlue', title = 'Win Pct vs Gold Difference')
+goldDiff.set_xlabel('Gold Difference Per Game')
+goldDiff.set_ylabel('Win Percentage')
+goldDiff.get_figure().savefig('goldDiff_corr.png')
+
+towers = total_agg.plot.scatter(x='towers',
+                     y='win_pct',
+                    c='DarkBlue', title = 'Win Pct vs Towers Captured')
+towers.set_xlabel('Towers Captured Per Game')
+towers.set_ylabel('Win Percentage')
+towers.get_figure().savefig('towers_corr.png')
+
+dragons = total_agg.plot.scatter(x='dragons',
+                     y='win_pct',
+                    c='DarkBlue', title = 'Win Pct vs Dragons Slain' )
+dragons.set_xlabel('Dragons Slain Per Game')
+dragons.set_ylabel('Win Percentage')
+dragons.get_figure().savefig('dragons_corr.png')
+
+inhibs = total_agg.plot.scatter(x='inhibs',
+                     y='win_pct',
+                    c='DarkBlue', title = 'Win Pct vs Inhibitors Destroyed')
+inhibs.set_xlabel('Inhibitors Destroyed Per Game')
+inhibs.set_ylabel('Win Percentage')
+inhibs.get_figure().savefig('inhibs_corr.png')
