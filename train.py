@@ -12,6 +12,7 @@ import time
 import random
 
 from LeagueInfo import team_aggregate
+from LeagueInfo import team_aggregate_diff
 
 from sklearn.model_selection import train_test_split
 from sklearn import preprocessing, metrics
@@ -47,7 +48,9 @@ def prep_data(args):
     
     ## FOR NOW WE WILL BUILD TEAM DATA DYNAMICALLY - fixed seed allows us to work around
     ## but fuck that
-    if args.team_data == '':
+    if args.team_data == '' and args.use_differentials:
+        team_data = team_aggregate_diff(train)
+    elif args.team_data == '' and not args.use_differentials:
         team_data = team_aggregate(train)
     else:
         team_data = pd.read_csv(args.team_data)
@@ -156,6 +159,7 @@ def manual_args():
     args.overwrite_output_dir = True
     args.seed=69
     args.tt_split = .8
+    args.use_differentials = True
     
     return args
 
@@ -178,7 +182,9 @@ def parse_args():
     parser.add_argument('--overwrite_output_dir', action='store_true',
                         help='Set this flag to overwrite the results dir')
     parser.add_argument('--tt_split', default=.8, type=float,
-                        help='Perentage of train data from original game data')
+                        help='Percentage of train data from original game data')
+    parser.add_argument('--use_differentials', action='store_true',
+                        help='Use difference in game stats rather than raw')
     
     return parser.parse_args()
 
