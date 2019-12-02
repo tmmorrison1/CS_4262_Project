@@ -136,6 +136,23 @@ def make_plots(total_agg):
     inhibs.set_ylabel('Win Percentage')
     inhibs.get_figure().savefig(path+'inhibs_corr'+name+'.png')
 
+    barons = total_agg.plot.scatter(x='barons',
+                                    y='win_pct',
+                                    c='DarkBlue', title='Win Pct vs Barons Killed')
+    barons .set_xlabel('Barons Killed Per Game')
+    barons .set_ylabel('Win Percentage')
+    barons .get_figure().savefig(path + 'Barons_corr' + name + '.png')
+
+    heralds = total_agg.plot.scatter(x='heralds',
+                                    y='win_pct',
+                                    c='DarkBlue', title='Win Pct vs Heralds Killed')
+    heralds.set_xlabel('Heralds Killed Per Game')
+    heralds.set_ylabel('Win Percentage')
+    heralds.get_figure().savefig(path + 'Heralds_corr' + name + '.png')
+
+
+
+
 
 if __name__ == '__main__':
     if len(sys.argv) > 3 or len(sys.argv) < 2:
