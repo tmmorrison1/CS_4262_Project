@@ -15,6 +15,7 @@ from LeagueInfo import team_aggregate
 
 from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
+from sklearn import metrics
 from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
@@ -88,19 +89,22 @@ def sample_champions(team_key1, team_key2):
 
 def evaluate(model, test_data):
     ## TODO: passes all of our training data through the model and computes statistics
-    x_columns = [0,1,2,4]
+    team_1 = fetch_team_stats(test_data[:,1])
+    team_2 = fetch_team_stats(test_data[:,2])
+    
+    
     y_column = [3]
     
  
-    test_x = np.delete(test_data,3,1)
-    test_y = test_data[:,3]
+    test_x = np.concatenate(team_1,team_2)
+    test_y = test_data[:,3].astype("int")
     
     predictions = model.predict(test_x)
     
-    f1 = sklearn.metrics.f1_score(test_y, predictions)
-    roc_auc = sklearn.metrics.roc_auc_score(test_y, predictions)
-    accuracy = sklearn.metrics.accuracy_score(test_y, predictions)
-    log_loss = sklearn.metrics.log_loss(test_y, predictions)
+    f1 = metrics.f1_score(test_y, predictions)
+    roc_auc = metrics.roc_auc_score(test_y, predictions)
+    accuracy = metrics.accuracy_score(test_y, predictions)
+    log_loss = metrics.log_loss(test_y, predictions)
     
     results = {}
     
