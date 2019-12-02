@@ -90,12 +90,13 @@ def sample_champions(team_key1, team_key2):
 
 def evaluate(model, test_data):
     ## TODO: passes all of our training data through the model and computes statistics
-    team_1 = fetch_team_stats(test_data[:,1])
-    team_2 = fetch_team_stats(test_data[:,2])
+    #should be correct now
+    team_1 = fetch_team_stats(test_data[:,1]).T
+    team_2 = fetch_team_stats(test_data[:,2]).T
     
     y_column = [3]
  
-    test_x = np.concatenate(team_1,team_2)
+    test_x = np.concatenate((team_1,team_2),axis=1)
     test_y = test_data[:,3].astype("int")
     
     predictions = model.predict(test_x)
