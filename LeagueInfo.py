@@ -4,6 +4,7 @@ import matplotlib as plt
 import sys
 
 name = '_min100'
+
 def team_aggregate_diff(matches, save=False):
     global name
     matches['kill_diff_blue'] = matches['bKills'] - matches['rKills']

@@ -23,7 +23,7 @@ from sklearn.model_selection import cross_val_score, GridSearchCV
 
 
 MODELS = (LogisticRegression, RandomForestClassifier, GradientBoostingClassifier,
-          SVC, LinearSVC)
+          SVC)
 
 team_data = None
 
@@ -107,7 +107,7 @@ def evaluate(model, test_data):
     f1 = metrics.f1_score(test_y, predictions)
     roc_auc = metrics.roc_auc_score(test_y, predictions)
     accuracy = metrics.accuracy_score(test_y, predictions)
-    log_loss = metrics.log_loss(test_y, predictions)
+    log_loss = metrics.log_loss(test_y, predictions, normalize=True)
     
     results = {}
     
@@ -128,26 +128,29 @@ def train(model_type, train_data):
     X_team = fetch_game_stats(X[:, 0], X[:, 1])
 
     ## Sweep parameters
-    #Cs = [0.001, 0.01, 0.1, 1, 10]
-    #gammas = [0.001, 0.01, 0.1, 1]
-    #param_grid = {'C': Cs, 'gamma' : gammas}
-    #grid_search = GridSearchCV(model_type(), param_grid, cv=3)
-    #grid_search.fit(X_team, y)
-    #best_params = grid_search.best_params_
+    Cs = [2e-5, 2e-3, 2e-1, 2e2, 2e3]
+    gammas = [0.5, 0.001, 0.01, 0.1, 1]
+    param_grid = {'C': Cs, 'gamma' : gammas}
+    grid_search = GridSearchCV(SVC(), param_grid, cv=3)
+    grid_search.fit(X_team, y)
+    best_params = grid_search.best_params_
+    print(best_params)
     
     ## TODO: CV over series of model hyperparameters
-    #model = SVC(**best_params)
-    model = model_type()
+    model = SVC(C=best_params['C'], gamma=best_params['gamma'])
     model.fit(X_team, y)
+
+    tr_acc = model.score(X_team, y)
     
-    return model
+    return model, tr_acc
 
 
 def train_models(args, train_data, test_data):
-    for model_type in MODELS:
-        model = train(model_type, train_data)
+    for it,model_type in enumerate(MODELS):
+        model, tr_acc = train(model_type, train_data)
         results = evaluate(model, test_data)
-    
+        print(it, tr_acc, results)
+        input()
         
 ## Used for when not running experiments from command line
 def manual_args():
@@ -159,7 +162,7 @@ def manual_args():
     args.overwrite_output_dir = True
     args.seed=69
     args.tt_split = .8
-    args.use_differentials = True
+    args.use_differentials = False
     
     return args
 
@@ -200,7 +203,7 @@ def main():
     ## Model Selection - FIXME: This needs to be based on arguments
     ## FIXME: Need a robust global parameter of different models that can be selected
     
-    #tr_acc = train(model, train_data)
+    tr_acc = train(MODELS[4], train_data)
     
     return 
     
