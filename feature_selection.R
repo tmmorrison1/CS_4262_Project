@@ -1,12 +1,11 @@
 library(data.table)
 library(ggplot2)
+setwd('CS_4262_Project')
 
 games = data.table(read.csv('league_data/LeagueofLegends.csv'))
 all_teams = unlist(list(games[, blueTeamTag], games[, redTeamTag]))
 num_teams = c()
 num_games = c()
-
-
 
 for(i in seq(0,100,5))
 {
@@ -42,11 +41,18 @@ for(i in seq(0,100, 5))
   maxs = c(maxs, max(team_table))
 }
 
-
 ## Chopping minimum threshold of 45 games and 100 gamesplayed
 factors = names(which(table(all_teams) > 45))
 tmp = games[redTeamTag %in% factors & blueTeamTag %in% factors]
-write.csv(tmp)
+write.csv(tmp, 'league_data_45.csv')
+
+## 100
+factors = names(which(table(all_teams) > 100))
+tmp = games[redTeamTag %in% factors & blueTeamTag %in% factors]
+write.csv(tmp, 'league_data_100.csv')
+
+
+
 
 
 
