@@ -192,6 +192,46 @@ def parse_args():
     return parser.parse_args()
 
 
+def dumb_model(data):
+    
+    data = test_data
+    team_1 = fetch_team_stats(data[:,1]).T
+    team_2 = fetch_team_stats(data[:,2]).T
+    
+    
+    y_column = [3]
+    
+    win_num = team_1 - team_2
+    
+    win_num = win_num>0
+    
+    win_num
+    results = [sum(game) for game in win_num]
+    
+    dumb_predictions = []
+    for result in results:
+        if result>2.5:
+            dumb_predictions.append(1)
+        else:
+            dumb_predictions.append(0)
+    
+    y_true = data[:,3].astype("int")
+    
+    
+     
+    f1 = metrics.f1_score(y_true, dumb_predictions)
+    roc_auc = metrics.roc_auc_score(y_true, dumb_predictions)
+    accuracy = metrics.accuracy_score(y_true, dumb_predictions)
+    log_loss = metrics.log_loss(y_true, dumb_predictions)
+    
+    results = {}
+    
+    results['f1'] = f1
+    results['roc auc'] = roc_auc
+    results['accuracy'] = accuracy
+    results['log loss']  = log_loss
+    return results
+
 def main():
     ## Gather arguments and se tthe seed
     args = manual_args()
@@ -206,7 +246,8 @@ def main():
     tr_acc = train(MODELS[4], train_data)
     
     return 
-    
+
+
 
 if __name__ == '__main__':
     main()
