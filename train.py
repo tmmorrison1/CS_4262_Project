@@ -15,14 +15,14 @@ from LeagueInfo import team_aggregate
 
 from sklearn.model_selection import train_test_split
 from sklearn import preprocessing, metrics
-from sklearn.svm import SVC
+from sklearn.svm import SVC, LinearSVC
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.model_selection import cross_val_score, GridSearchCV
 
 
 MODELS = (LogisticRegression, RandomForestClassifier, GradientBoostingClassifier,
-          SVC)
+          SVC, LinearSVC)
 
 team_data = None
 
@@ -91,8 +91,8 @@ def sample_champions(team_key1, team_key2):
 def evaluate(model, test_data):
     ## TODO: passes all of our training data through the model and computes statistics
     #should be correct now
-    team_1 = fetch_team_stats(test_data[:,1]).T
-    team_2 = fetch_team_stats(test_data[:,2]).T
+    team_1 = fetch_team_stats(test_data[:,1])
+    team_2 = fetch_team_stats(test_data[:,2])
     
     y_column = [3]
  
@@ -116,7 +116,7 @@ def evaluate(model, test_data):
     return results
 
 
-def train(model, train_data, test_data):
+def train(model_type, train_data):
     ## Split X, y
     X = train_data[:, (1,2)]
     y = train_data[:, 3].astype('int')
@@ -125,22 +125,27 @@ def train(model, train_data, test_data):
     X_team = fetch_game_stats(X[:, 0], X[:, 1])
 
     ## Sweep parameters
-    Cs = [0.001, 0.01, 0.1, 1, 10]
-    gammas = [0.001, 0.01, 0.1, 1]
-    param_grid = {'C': Cs, 'gamma' : gammas}
-    grid_search = GridSearchCV(SVC(kernel='rbf',verbose=2), param_grid, cv=3)
-    grid_search.fit(X_team, y)
-    best_params = grid_search.best_params_
+    #Cs = [0.001, 0.01, 0.1, 1, 10]
+    #gammas = [0.001, 0.01, 0.1, 1]
+    #param_grid = {'C': Cs, 'gamma' : gammas}
+    #grid_search = GridSearchCV(model_type(), param_grid, cv=3)
+    #grid_search.fit(X_team, y)
+    #best_params = grid_search.best_params_
     
     ## TODO: CV over series of model hyperparameters
-    model = SVC(**best_params)
+    #model = SVC(**best_params)
+    model = model_type()
     model.fit(X_team, y)
-
-    results = evaluate(model, test_data)
     
-    return
+    return model
 
 
+def train_models(args, train_data, test_data):
+    for model_type in MODELS:
+        model = train(model_type, train_data)
+        results = evaluate(model, test_data)
+    
+        
 ## Used for when not running experiments from command line
 def manual_args():
     parser = argparse.ArgumentParser()
@@ -188,8 +193,7 @@ def main():
 
     ## Model Selection - FIXME: This needs to be based on arguments
     ## FIXME: Need a robust global parameter of different models that can be selected
-    model = SVC(train_data)
-
+    
     #tr_acc = train(model, train_data)
     
     return 
