@@ -79,9 +79,31 @@ def sample_champions(team_key1, team_key2):
 
 def evaluate(model, test_data):
     ## TODO: passes all of our training data through the model and computes statistics
-
+    x_columns = [0,1,2,4]
+    y_column = [3]
     
-    return
+    test_length = len(test_data)
+    
+    rows = np.ones((1, test_length), dtype=bool)
+    
+    test_x = test_data[np.ix_(rows,x_columns )]
+    test_y = test_data[np.ix_(rows,y_column )]
+    
+    predictions = model.predict(test_x)
+    
+    f1 = sklearn.metrics.f1_score(test_y, predictions)
+    roc_auc = sklearn.metrics.roc_auc_score(test_y, predictions)
+    accuracy = sklearn.metrics.accuracy_score(test_y, predictions)
+    log_loss = sklearn.metrics.log_loss(test_y, predictions)
+    
+    results = {}
+    
+    results['f1'] = f1
+    results['roc auc'] = roc_auc
+    results['accuracy'] = accuracy
+    results['log loss']  = log_loss
+    
+    return results
 
 
 def train(model, train_data):
@@ -147,7 +169,7 @@ def main():
     model = SVC()
 
     tr_acc = train(model, train_data)
-
+    
     return
     
 
