@@ -16,7 +16,11 @@ from LeagueInfo import team_aggregate
 from sklearn.model_selection import train_test_split
 from sklearn import preprocessing
 from sklearn.svm import SVC
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 
+MODELS = (LogisticRegression, RandomForestClassifier, GradientBoostingClassifier,
+          SVC)
 
 team_data = None
 
@@ -60,10 +64,15 @@ def prep_data(args):
     return train.values, test.values
 
 
+## team1, team2 are np.arrays of team keys
+def fetch_game_stats(team1,team2):
+    return np.concatenate((fetch_team_stats(team1), fetch_team_stats(team2)), axis=1)
+
+
 ## Uses table of team data to gather a single element of training data
-def fetch_team_stats(team_key):
-    ts = team_data.loc[team_key]
-    return np.array([ts.kills, ts.towers, ts.inhibs, ts.dragons, ts.goldDiff])
+def fetch_team_stats(team_keys):
+    ts = team_data.loc[team_keys]
+    return np.array([ts.kills, ts.towers, ts.inhibs, ts.dragons, ts.goldDiff]).T
 
 
 def sample_champions(team_key1, team_key2):
@@ -86,11 +95,13 @@ def evaluate(model, test_data):
 
 def train(model, train_data):
     ## Split X, y
-    X = train_data[:, (0,1,2)]
+    X = train_data[:, (1,2)]
     y = train_data[:, 3]
 
     ## TODO: for each element of X, grab appropriate features
+    X_team = fetch_game_stats(X[:, 0], X[:, 1])
     
+    ## fetch team 1/2 data
     
     ## TODO: CV over series of model hyperparameters
     
