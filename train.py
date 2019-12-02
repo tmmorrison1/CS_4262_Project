@@ -14,10 +14,12 @@ import random
 from LeagueInfo import team_aggregate
 
 from sklearn.model_selection import train_test_split
-from sklearn import preprocessing
+from sklearn import preprocessing, metrics
 from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.model_selection import cross_val_score, GridSearchCV
+
 
 MODELS = (LogisticRegression, RandomForestClassifier, GradientBoostingClassifier,
           SVC)
@@ -100,17 +102,17 @@ def evaluate(model, test_data):
     
     predictions = model.predict(test_x)
     
-    f1 = sklearn.metrics.f1_score(test_y, predictions)
-    roc_auc = sklearn.metrics.roc_auc_score(test_y, predictions)
-    accuracy = sklearn.metrics.accuracy_score(test_y, predictions)
-    log_loss = sklearn.metrics.log_loss(test_y, predictions)
+    f1 = metrics.f1_score(test_y, predictions)
+    roc_auc = metrics.roc_auc_score(test_y, predictions)
+    accuracy = metrics.accuracy_score(test_y, predictions)
+    log_loss = metrics.log_loss(test_y, predictions)
     
     results = {}
     
     results['f1'] = f1
     results['roc auc'] = roc_auc
     results['accuracy'] = accuracy
-    results['log loss']  = log_loss
+    results['log loss'] = log_loss
     
     return results
 
@@ -118,14 +120,24 @@ def evaluate(model, test_data):
 def train(model, train_data):
     ## Split X, y
     X = train_data[:, (1,2)]
-    y = train_data[:, 3]
-
+    y = train_data[:, 3].astype('int')
+    
     ## TODO: for each element of X, grab appropriate features
     X_team = fetch_game_stats(X[:, 0], X[:, 1])
-    
-    ## fetch team 1/2 data
+
+    ## Sweep parameters
+    Cs = [0.001, 0.01, 0.1, 1, 10]
+    gammas = [0.001, 0.01, 0.1, 1]
+    param_grid = {'C': Cs, 'gamma' : gammas}
+    grid_search = GridSearchCV(SVC(kernel='rbf'), param_grid, cv=3)
+    grid_search.fit(X_team, y, verbose=2)
+    best_params = grid_search.best_params_
     
     ## TODO: CV over series of model hyperparameters
+    model = SVC(**best_params)
+    model.fit(X_team, y)
+
+    model.score(X_test, y_test)
     
     return
 
@@ -169,7 +181,7 @@ def parse_args():
 
 def main():
     ## Gather arguments and se tthe seed
-    args = parse_args()
+    args = manual_args()
     set_seed(args)
 
     ## Get data - np.arrays
