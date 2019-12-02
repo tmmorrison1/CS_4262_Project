@@ -82,12 +82,9 @@ def evaluate(model, test_data):
     x_columns = [0,1,2,4]
     y_column = [3]
     
-    test_length = len(test_data)
-    
-    rows = np.ones((1, test_length), dtype=bool)
-    
-    test_x = test_data[np.ix_(rows,x_columns )]
-    test_y = test_data[np.ix_(rows,y_column )]
+ 
+    test_x = np.delete(test_data,3,1)
+    test_y = test_data[:,3]
     
     predictions = model.predict(test_x)
     
@@ -158,7 +155,7 @@ def parse_args():
 
 def main():
     ## Gather arguments and se tthe seed
-    args = parse_args()
+    args = manual_args()
     set_seed(args)
 
     ## Get data - np.arrays
@@ -166,11 +163,11 @@ def main():
 
     ## Model Selection - FIXME: This needs to be based on arguments
     ## FIXME: Need a robust global parameter of different models that can be selected
-    model = SVC()
+    model = SVC(train_data)
 
-    tr_acc = train(model, train_data)
+    #tr_acc = train(model, train_data)
     
-    return
+    return 
     
 
 if __name__ == '__main__':
