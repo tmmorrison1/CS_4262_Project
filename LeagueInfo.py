@@ -7,6 +7,7 @@ name = '_min100'
 
 def team_aggregate_diff(matches, save=False):
     global name
+
     matches['kill_diff_blue'] = matches.apply(lambda x: len(eval(x['bKills'])) - len(eval(x['rKills'])), axis = 1)
     matches['kill_diff_red'] = matches['kill_diff_blue'].apply(lambda x: -1 * x)
     matches['tower_diff_blue'] = matches.apply(lambda x: len(eval(x.bTowers)) - len(eval(x.rTowers)), axis = 1)
@@ -19,11 +20,19 @@ def team_aggregate_diff(matches, save=False):
     matches['baron_diff_red'] = matches['baron_diff_blue'].apply(lambda x: -1 * x)
     matches['herald_diff_blue'] = matches.apply(lambda x: len(eval(x.bHeralds)) - len(eval(x.rHeralds)), axis=1)
     matches['herald_diff_red'] = matches['herald_diff_blue'].apply(lambda x: -1 * x)
+    matches['first_tower_blue'] = matches.apply(lambda x: min(list(zip(*eval(x.bTowers)))[0]) if list(zip(*eval(x.bTowers))) != [] else x.gamelength, axis=1)
+    matches['first_tower_red'] = matches.apply(lambda x: min(list(zip(*eval(x.rTowers)))[0]) if list(zip(*eval(x.rTowers))) != [] else x.gamelength, axis=1)
+    matches['first_herald_blue'] = matches.apply(lambda x: min(list(zip(*eval(x.bHeralds)))[0]) if list(zip(*eval(x.bHeralds))) != [] else x.gamelength, axis=1)
+    matches['first_herald_red'] = matches.apply(lambda x: min(list(zip(*eval(x.rHeralds)))[0]) if list(zip(*eval(x.rHeralds))) != [] else x.gamelength, axis=1)
+    matches['first_dragon_blue'] = matches.apply(lambda x: min(list(zip(*eval(x.bDragons)))[0]) if list(zip(*eval(x.bDragons))) != [] else x.gamelength, axis=1)
+    matches['first_dragon_red'] = matches.apply(lambda x: min(list(zip(*eval(x.rDragons)))[0]) if list(zip(*eval(x.rDragons))) != [] else x.gamelength, axis=1)
+
+
 
     critical_cols_blue = matches[
-        ['blueTeamTag', 'golddiff', 'kill_diff_blue', 'tower_diff_blue', 'inhib_diff_blue', 'dragon_diff_blue', 'baron_diff_blue', 'herald_diff_blue', 'bResult', 'Address']]
+        ['blueTeamTag', 'golddiff', 'kill_diff_blue', 'tower_diff_blue', 'inhib_diff_blue', 'dragon_diff_blue', 'baron_diff_blue', 'herald_diff_blue', 'first_tower_blue', 'first_herald_blue', 'first_dragon_blue', 'bResult', 'Address']]
     critical_cols_red = matches[
-        ['redTeamTag', 'golddiff', 'kill_diff_red', 'tower_diff_red', 'inhib_diff_red', 'dragon_diff_red', 'baron_diff_red', 'herald_diff_red', 'rResult', 'Address']]
+        ['redTeamTag', 'golddiff', 'kill_diff_red', 'tower_diff_red', 'inhib_diff_red', 'dragon_diff_red', 'baron_diff_red', 'herald_diff_red', 'first_tower_red', 'first_herald_red', 'first_dragon_red', 'rResult', 'Address']]
 
     critical_cols_blue['summedGoldDiff'] = critical_cols_blue['golddiff'].apply(lambda x: sum(eval(x)))
     critical_cols_red['summedGoldDiff'] = critical_cols_red['golddiff'].apply(lambda x: sum(eval(x)))
@@ -45,19 +54,21 @@ def team_aggregate_diff(matches, save=False):
     red_blue['dragons'] = (red_blue['dragon_diff_red'] + red_blue['dragon_diff_blue']) / red_blue['games']
     red_blue['barons'] = (red_blue['baron_diff_red'] + red_blue['baron_diff_blue']) / red_blue['games']
     red_blue['heralds'] = (red_blue['herald_diff_red'] + red_blue['herald_diff_blue']) / red_blue['games']
-    total_agg = red_blue[['games', 'win_pct', 'goldDiff', 'kills', 'towers', 'inhibs', 'dragons', 'barons', 'heralds']]
+    red_blue['time_to_first_tower'] = (red_blue['first_tower_blue'] + red_blue['first_tower_red'])/red_blue['games']
+    red_blue['time_to_first_herald'] = (red_blue['first_herald_blue'] + red_blue['first_herald_red'])/red_blue['games']
+    red_blue['time_to_first_dragon'] = (red_blue['first_dragon_blue'] + red_blue['first_dragon_red'])/red_blue['games']
+    total_agg = red_blue[['games', 'win_pct', 'goldDiff', 'kills', 'towers', 'inhibs', 'dragons', 'barons', 'heralds', 'time_to_first_tower', 'time_to_first_herald', 'time_to_first_dragon']]
 
     if save:
         total_agg.rename_axis("team").to_csv('data/total_agg_diff' + name + '.csv')
 
     return total_agg
 
-
 def team_aggregate(matches, save=False):
     global name
 
-    critical_cols_blue = matches[['blueTeamTag', 'golddiff', 'bKills', 'bTowers', 'bInhibs', 'bDragons', 'bBarons', 'bHeralds', 'bResult', 'Address']]
-    critical_cols_red = matches[['redTeamTag', 'golddiff',  'rKills', 'rTowers', 'rInhibs', 'rDragons','rBarons', 'rHeralds','rResult', 'Address']]
+    critical_cols_blue = matches[['blueTeamTag', 'golddiff', 'bKills', 'bTowers', 'bInhibs', 'bDragons', 'bBarons', 'bHeralds', 'bResult', 'Address', 'gamelength']]
+    critical_cols_red = matches[['redTeamTag', 'golddiff',  'rKills', 'rTowers', 'rInhibs', 'rDragons','rBarons', 'rHeralds','rResult', 'Address' , 'gamelength']]
 
     critical_cols_blue['summedGoldDiff'] = critical_cols_blue['golddiff'].apply(lambda x: sum(eval(x)))
     critical_cols_red['summedGoldDiff'] = critical_cols_red['golddiff'].apply(lambda x: sum(eval(x)))
@@ -73,8 +84,14 @@ def team_aggregate(matches, save=False):
     critical_cols_red['barons'] = critical_cols_red['rBarons'].apply(lambda x: len(eval(x)))
     critical_cols_blue['heralds'] = critical_cols_blue['bHeralds'].apply(lambda x: len(eval(x)))
     critical_cols_red['heralds'] = critical_cols_red['rHeralds'].apply(lambda x: len(eval(x)))
+    critical_cols_blue['first_tower_blue'] = critical_cols_blue.apply(lambda x: min(list(zip(*eval(x.bTowers)))[0]) if list(zip(*eval(x.bTowers))) != [] else x.gamelength, axis=1)
+    critical_cols_red['first_tower_red'] = critical_cols_red.apply(lambda x: min(list(zip(*eval(x.rTowers)))[0]) if list(zip(*eval(x.rTowers))) != [] else x.gamelength, axis=1)
+    critical_cols_blue['first_herald_blue'] =critical_cols_blue.apply(lambda x: min(list(zip(*eval(x.bHeralds)))[0]) if list(zip(*eval(x.bHeralds))) != [] else x.gamelength, axis=1)
+    critical_cols_red['first_herald_red'] = critical_cols_red.apply(lambda x: min(list(zip(*eval(x.rHeralds)))[0]) if list(zip(*eval(x.rHeralds))) != [] else x.gamelength, axis=1)
+    critical_cols_blue['first_dragon_blue'] = critical_cols_blue.apply(lambda x: min(list(zip(*eval(x.bDragons)))[0]) if list(zip(*eval(x.bDragons))) != [] else x.gamelength, axis=1)
+    critical_cols_red['first_dragon_red'] = critical_cols_red.apply(lambda x: min(list(zip(*eval(x.rDragons)))[0]) if list(zip(*eval(x.rDragons))) != [] else x.gamelength, axis=1)
 
-    games_played_blue =critical_cols_blue.groupby('blueTeamTag').size().sort_index()
+    games_played_blue = critical_cols_blue.groupby('blueTeamTag').size().sort_index()
     games_played_red = critical_cols_red.groupby('redTeamTag').size().sort_index()
     blues_avg = critical_cols_blue.groupby('blueTeamTag').agg('sum').sort_index()
     blues_avg['count'] = games_played_blue
@@ -91,7 +108,13 @@ def team_aggregate(matches, save=False):
     red_blue['dragons'] = (red_blue['dragons_red'] + red_blue['dragons_blue'])/red_blue['games']
     red_blue['barons'] = (red_blue['barons_red'] + red_blue['barons_blue']) / red_blue['games']
     red_blue['heralds'] = (red_blue['heralds_red'] + red_blue['heralds_blue']) / red_blue['games']
-    total_agg = red_blue[['games', 'win_pct', 'goldDiff', 'kills', 'towers', 'inhibs', 'dragons', 'barons', 'heralds']]
+    red_blue['time_to_first_tower'] = (red_blue['first_tower_blue'] + red_blue['first_tower_red']) / red_blue['games']
+    red_blue['time_to_first_herald'] = (red_blue['first_herald_blue'] + red_blue['first_herald_red']) / red_blue[
+        'games']
+    red_blue['time_to_first_dragon'] = (red_blue['first_dragon_blue'] + red_blue['first_dragon_red']) / red_blue[
+        'games']
+
+    total_agg = red_blue[['games', 'win_pct', 'goldDiff', 'kills', 'towers', 'inhibs', 'dragons', 'barons', 'heralds', 'time_to_first_tower', 'time_to_first_herald', 'time_to_first_dragon' ]]
 
     if save:
         total_agg.rename_axis("team").to_csv('data/total_agg'+name+'.csv')

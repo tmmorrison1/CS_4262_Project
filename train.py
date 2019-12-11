@@ -31,6 +31,9 @@ from sklearn.svm import SVC, LinearSVC
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.model_selection import cross_val_score, GridSearchCV
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler 
+
 
 from sklearn.metrics import accuracy_score
 
@@ -275,6 +278,16 @@ def dumb_model(args, test_data):
     results['accuracy'] = accuracy
     results['log loss']  = log_loss
     return results
+
+
+
+
+    
+
+
+
+
+
 
 def main():
     ## Gather arguments and se tthe seed
