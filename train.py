@@ -11,8 +11,19 @@ import os
 import time
 import random
 
+## NN stuff
+import torch
+import torch.nn.functional as F
+from torch.utils.data import (DataLoader, RandomSampler, SequentialSampler,
+                              TensorDataset)
+from tensorboardX import SummaryWriter
+from tqdm import tqdm, trange
+
+## external files
 from LeagueInfo import team_aggregate
 from LeagueInfo import team_aggregate_diff
+
+from nn_model import LOL_model
 
 from sklearn.model_selection import train_test_split
 from sklearn import preprocessing, metrics
@@ -21,6 +32,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.model_selection import cross_val_score, GridSearchCV
 
+from sklearn.metrics import accuracy_score
 
 MODELS = (LogisticRegression, RandomForestClassifier, GradientBoostingClassifier,
           SVC)
@@ -77,7 +89,8 @@ def fetch_game_stats(team1,team2):
 ## Uses table of team data to gather a single element of training data
 def fetch_team_stats(team_keys):
     ts = team_data.loc[team_keys]
-    return np.array([ts.kills, ts.towers, ts.inhibs, ts.dragons, ts.goldDiff]).T
+    return np.array([ts.kills, ts.inhibs, ts.dragons, ts.goldDiff,
+                     ts.barons, ts.heralds]).T
 
 
 def sample_champions(team_key1, team_key2):
@@ -94,15 +107,10 @@ def sample_champions(team_key1, team_key2):
 def evaluate(model, test_data):
     ## TODO: passes all of our training data through the model and computes statistics
     #should be correct now
-    team_1 = fetch_team_stats(test_data[:,1])
-    team_2 = fetch_team_stats(test_data[:,2])
-    
-    y_column = [3]
- 
-    test_x = np.concatenate((team_1,team_2),axis=1)
+    test_X = fetch_game_stats(test_data[:,1], test_data[:,2])
     test_y = test_data[:,3].astype("int")
     
-    predictions = model.predict(test_x)
+    predictions = model.predict(test_X)
     
     f1 = metrics.f1_score(test_y, predictions)
     roc_auc = metrics.roc_auc_score(test_y, predictions)
@@ -128,21 +136,72 @@ def train(model_type, train_data):
     X_team = fetch_game_stats(X[:, 0], X[:, 1])
 
     ## Sweep parameters
-    Cs = [2e-5, 2e-3, 2e-1, 2e2, 2e3]
-    gammas = [0.5, 0.001, 0.01, 0.1, 1]
-    param_grid = {'C': Cs, 'gamma' : gammas}
-    grid_search = GridSearchCV(SVC(), param_grid, cv=3)
-    grid_search.fit(X_team, y)
-    best_params = grid_search.best_params_
-    print(best_params)
+    #Cs = [2e-5, 2e-3, 2e-1, 2e2, 2e3]
+    #gammas = [0.5, 0.001, 0.01, 0.1, 1]
+    #param_grid = {'C': Cs, 'gamma' : gammas}
+    #grid_search = GridSearchCV(SVC(), param_grid, cv=3)
+    #grid_search.fit(X_team, y)
+    #best_params = grid_search.best_params_
+    #print(best_params)
     
     ## TODO: CV over series of model hyperparameters
-    model = SVC(C=best_params['C'], gamma=best_params['gamma'])
+    #model = SVC(C=best_params['C'], gamma=best_params['gamma'])
+    model = model_type()
     model.fit(X_team, y)
 
     tr_acc = model.score(X_team, y)
     
     return model, tr_acc
+
+
+def neural_net(args, train_data):
+    X = train_data[:, (1,2)]
+    y = train_data[:, 3].astype('int')
+    
+    ## TODO: for each element of X, grab appropriate features
+    X_team = torch.Tensor(fetch_game_stats(X[:, 0], X[:, 1]))
+    labels = torch.Tensor(y).long()
+
+    train_set = TensorDataset(X_team, labels)
+
+    train_sampler = RandomSampler(train_set)
+    train_loader = DataLoader(train_set, sampler=train_sampler,
+                              batch_size=args.batch_size)
+
+    set_seed(args)
+
+    train_it = trange(int(args.epochs), desc="Epoch")
+    loss_logged = []
+    g_step, tr_loss = 0.0, 0.0
+    acc_per_it = []
+    labels = []
+    
+    model = LOL_model(X_team.size()[1])
+    model.train()
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
+
+    for epoch in train_it:
+        epoch_it = tqdm(train_loader, desc='Iteration')
+
+        for step, batch in enumerate(epoch_it):
+            outputs = model(batch[0], batch[1])
+            loss = outputs[0]
+            
+            loss.backward()
+
+            tr_loss += loss.item()
+            loss_logged.append(loss.item)
+
+            optimizer.step()
+            model.zero_grad()
+            g_step += 1
+
+            acc_per_it = np.concatenate((acc_per_it,
+                                        np.argmax(outputs[1].detach().numpy(), axis=1)),
+                                        axis=0)
+            labels.extend(batch[1].detach().numpy())
+
+    print(accuracy_score(labels, acc_per_it))
 
 
 def train_models(args, train_data, test_data):
@@ -162,8 +221,9 @@ def manual_args():
     args.overwrite_output_dir = True
     args.seed=69
     args.tt_split = .8
-    args.use_differentials = False
-    
+    args.use_differentials = True
+    args.batch_size = 64
+    args.epochs = 5
     return args
 
 ## Builds the arguments from a bash file and stores in args
@@ -192,32 +252,16 @@ def parse_args():
     return parser.parse_args()
 
 
-def dumb_model(data):
-    
-    data = test_data
-    team_1 = fetch_team_stats(data[:,1]).T
-    team_2 = fetch_team_stats(data[:,2]).T
-    
-    
-    y_column = [3]
-    
+def dumb_model(args, test_data):
+    team_1 = fetch_team_stats(test_data[:,1])
+    team_2 = fetch_team_stats(test_data[:,2])
+      
     win_num = team_1 - team_2
-    
-    win_num = win_num>0
-    
-    win_num
-    results = [sum(game) for game in win_num]
-    
-    dumb_predictions = []
-    for result in results:
-        if result>2.5:
-            dumb_predictions.append(1)
-        else:
-            dumb_predictions.append(0)
-    
-    y_true = data[:,3].astype("int")
-    
-    
+    win_num = win_num >= 0
+    results = win_num.sum(axis=1)
+
+    dumb_predictions  = results > win_num.shape[1]/2
+    y_true = test_data[:,3].astype("int")
      
     f1 = metrics.f1_score(y_true, dumb_predictions)
     roc_auc = metrics.roc_auc_score(y_true, dumb_predictions)
@@ -243,11 +287,10 @@ def main():
     ## Model Selection - FIXME: This needs to be based on arguments
     ## FIXME: Need a robust global parameter of different models that can be selected
     
-    tr_acc = train(MODELS[4], train_data)
-    
-    return 
+    tr_acc = train(MODELS[4], train_data) 
 
 
 
 if __name__ == '__main__':
     main()
+
