@@ -20,6 +20,9 @@ from sklearn.svm import SVC, LinearSVC
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.model_selection import cross_val_score, GridSearchCV
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler 
+
 
 
 MODELS = (LogisticRegression, RandomForestClassifier, GradientBoostingClassifier,
@@ -147,7 +150,7 @@ def train_models(args, train_data, test_data):
     for model_type in MODELS:
         model = train(model_type, train_data)
         results = evaluate(model, test_data)
-    
+
         
 ## Used for when not running experiments from command line
 def manual_args():
@@ -228,6 +231,57 @@ def dumb_model(data):
     results['accuracy'] = accuracy
     results['log loss']  = log_loss
     return results
+
+
+
+#data = data frame of game info
+#num_components = number of principle components
+#returns new data frame with principle components of the team data extracted
+def run_pca(data, num_components):
+    
+    
+    
+    data_vals = data
+    
+    target_index = len(data_vals[0])-2
+    
+    
+    
+    team_1 = fetch_team_stats(data_vals[:,1])
+    team_2 = fetch_team_stats(data_vals[:,2])
+    
+    x_data = np.concatenate((team_1, team_2), axis=1) 
+    y_data = data_vals[:,target_index].astype("int")
+    
+    
+    y_df = pd.DataFrame(data = y_data)
+ 
+    x_data = StandardScaler().fit_transform(x_data)
+    
+    lol_pca = PCA(n_components=num_components)
+    
+    principal_components = lol_pca.fit_transform(x_data)
+    
+    
+    
+    principal_df = pd.DataFrame(data = principal_components)
+    
+    finalDf = pd.concat([principal_df, y_df], axis = 1)
+    
+    
+    for i in range(1,1+ num_components):
+        print('Principle Component ' + str(i) + ' explains ' + str(lol_pca.explained_variance_ratio_[i-1])+' of the total variance')
+    
+    print() 
+    print('Total Explained Variance: ' + str(sum(lol_pca.explained_variance_ratio_))+' for '+str(num_components)+' principle components')
+    
+    #return finalDf
+    
+
+
+
+
+
 
 def main():
     ## Gather arguments and se tthe seed
