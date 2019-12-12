@@ -48,11 +48,37 @@ def run_pca(data, num_components):
     
     finalDf = pd.concat([principal_df, y_df], axis = 1)
     
-    
+    ex_var = sum(lol_pca.explained_variance_ratio_)
     for i in range(1,1+ num_components):
         print('Principle Component ' + str(i) + ' explains ' + str(lol_pca.explained_variance_ratio_[i-1])+' of the total variance')
     
     print() 
-    print('Total Explained Variance: ' + str(sum(lol_pca.explained_variance_ratio_))+' for '+str(num_components)+' principle components')
+    print('Total Explained Variance: ' + str(ex_var)+' for '+str(num_components)+' principle components')
     
-    return finalDf
+    return ex_var,finalDf
+
+
+
+
+def pca_plot():
+    
+    args = manual_args()
+    
+    train, test = prep_data(args)
+    complete_data = np.concatenate((train,test),axis =0)
+    
+    ex_var_list = []
+    
+    number_components = range(11)
+    
+    for i in number_components:
+        ex_var, reduced_df = run_pca(complete_data,i)
+        ex_var_list.append(ex_var)
+        
+    plt.pyplot.xlabel('Number of Components')
+    plt.pyplot.ylabel('Explained Variance')
+    plt.pyplot.title('Principal Component Variance Explained')
+    
+    plt.pyplot.plot(number_components,ex_var_list)
+    plt.pyplot.savefig('pca.png')
+    
