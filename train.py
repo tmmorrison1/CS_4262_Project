@@ -36,14 +36,15 @@ from sklearn.preprocessing import StandardScaler
 
 from sklearn.metrics import accuracy_score
 from sklearn.preprocessing import StandardScaler 
+from sklearn.decomposition import PCA
 
-from pca import run_pca
 
 MODELS = (LogisticRegression, RandomForestClassifier, GradientBoostingClassifier,
           SVC)
 MODEL_NAMES = ('LR', 'RF', 'XBoost', 'SVM')
 
 team_data = None
+NUMPC = 8
 
 ## Ensure Reproducibility
 def set_seed(args):
@@ -100,11 +101,51 @@ def fetch_team_stats(team_keys):
                      ts.time_to_first_dragon]).T
 
 
+def run_pca(data, num_components):
+    
+    data_vals = data
+    
+    target_index = len(data_vals[0])-2
+    
+    
+    
+    team_1 = fetch_team_stats(data_vals[:,1])
+    team_2 = fetch_team_stats(data_vals[:,2])
+    
+    x_data = np.concatenate((team_1, team_2), axis=1) 
+    y_data = data_vals[:,target_index].astype("int")
+    
+    
+    y_df = pd.DataFrame(data = y_data)
+ 
+    
+    y_df.rename(columns = {0:'target'},inplace = True)
+    
+    x_data = StandardScaler().fit_transform(x_data)
+    
+    lol_pca = PCA(n_components=num_components)
+    
+    principal_components = lol_pca.fit_transform(x_data)
+    
+    principal_df = pd.DataFrame(data = principal_components)
+    
+    finalDf = pd.concat([principal_df, y_df], axis = 1)
+    
+    
+    for i in range(1,1+ num_components):
+        print('Principle Component ' + str(i) + ' explains ' + str(lol_pca.explained_variance_ratio_[i-1])+' of the total variance')
+    
+    print() 
+    print('Total Explained Variance: ' + str(sum(lol_pca.explained_variance_ratio_))+' for '+str(num_components)+' principle components')
+    
+    return finalDf
+
+
 def evaluate(model, test_data):
     ## TODO: passes all of our training data through the model and computes statistics
     #should be correct now
-    test_X = fetch_game_stats(test_data[:,1], test_data[:,2])
-    test_y = test_data[:,3].astype("int")
+    test_X = test_data[:,0:NUMPC]
+    test_y = test_data[:,NUMPC].astype("int")
     
     predictions = model.predict(test_X)
     
@@ -125,37 +166,34 @@ def evaluate(model, test_data):
 
 def train(model_type, train_data):
     ## Split X, y
-    X = train_data[:, (1,2)]
-    y = train_data[:, 3].astype('int')
+    X = train_data[:, 0:NUMPC]
+    y = train_data[:, NUMPC].astype('int')
     
-    ## TODO: for each element of X, grab appropriate features
-    X_team = fetch_game_stats(X[:, 0], X[:, 1])
-
     ## Sweep parameters
-    #Cs = [2e-5, 2e-3, 2e-1, 2e2, 2e3]
-    #gammas = [0.5, 0.001, 0.01, 0.1, 1]
-    #param_grid = {'C': Cs, 'gamma' : gammas}
-    #grid_search = GridSearchCV(SVC(), param_grid, cv=3)
-    #grid_search.fit(X_team, y)
-    #best_params = grid_search.best_params_
+    Cs = [2e-5, 2e-3, 2e-1, 2e2, 2e3]
+    gammas = [0.5, 0.001, 0.01, 0.1, 1]
+    param_grid = {'C': Cs, 'gamma' : gammas}
+    grid_search = GridSearchCV(SVC(), param_grid, cv=3)
+    grid_search.fit(X, y)
+    best_params = grid_search.best_params_
     #print(best_params)
     
     ## TODO: CV over series of model hyperparameters
-    #model = SVC(C=best_params['C'], gamma=best_params['gamma'])
-    model = model_type()
-    model.fit(X_team, y)
+    model = SVC(C=best_params['C'], gamma=best_params['gamma'])
+    #model = model_type()
+    model.fit(X, y)
 
-    tr_acc = model.score(X_team, y)
+    tr_acc = model.score(X, y)
     
     return model, tr_acc
 
 
 def neural_net(args, train_data, test_data):
-    X = train_data[:, (1,2)]
-    y = train_data[:, 3].astype('int')
+    X = train_data[:, 0:NUMPC]
+    y = train_data[:, NUMPC].astype('int')
     
     ## TODO: for each element of X, grab appropriate features
-    X_team = torch.Tensor(fetch_game_stats(X[:, 0], X[:, 1]))
+    X_team = torch.Tensor(X)
     labels = torch.Tensor(y).long()
 
     train_set = TensorDataset(X_team, labels)
@@ -174,7 +212,7 @@ def neural_net(args, train_data, test_data):
     
     model = LOL_model(X_team.size()[1])
     model.train()
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     for epoch in train_it:
         epoch_it = tqdm(train_loader, desc='Iteration')
@@ -202,8 +240,8 @@ def neural_net(args, train_data, test_data):
     ## Now compute accuracy
     model.eval()
 
-    test_X = torch.Tensor(fetch_game_stats(test_data[:,1], test_data[:,2]))
-    test_y = torch.Tensor(test_data[:,3].astype("int"))
+    test_X = torch.Tensor(test_data[:,0:NUMPC])
+    test_y = torch.Tensor(test_data[:,NUMPC].astype("int"))
 
     test_set = TensorDataset(test_X, test_y)
 
@@ -236,11 +274,13 @@ def manual_args():
     args.team_data = ''
     args.output_dir = 'model_states/tmp/'
     args.overwrite_output_dir = True
-    args.seed=69
+    args.seed=100
     args.tt_split = .8
+    args.results = 'diff'
     args.use_differentials = True
-    args.batch_size = 64
-    args.epochs = 5
+    args.batch_size = 256
+    args.epochs = 12
+    args.lr = 1e-3
     return args
 
 
@@ -270,28 +310,27 @@ def dumb_model(args, test_data):
 
 
 def get_reduced_data(train_data, test_data):
-    num_pcs = [4,6,8]
+    num_pcs = NUMPC
     complete_data = np.concatenate((train_data,test_data),axis =0)
     
-    for num_pc in num_pcs:
-        pca_df = run_pca(complete_data, num_pc)
+    pca_df = run_pca(complete_data, num_pcs)
 
-        breakpoint()
+    length = round(len(pca_df)*.8)
+    
+    train_df = pca_df[:length][:]
+    test_df = pca_df[length:][:]
         
-        train_df = pca_df[:3000][:]
-        test_df = pca_df[3000:][:]
+    y_train = train_df[:]['target']
+    x_train = train_df.drop('target',axis =1)
         
-        y_train = train_df[:]['target']
-        x_train = train_df.drop('target',axis =1)
-        
-        y_test = test_df[:]['target']
-        x_test = test_df.drop('target',axis =1)
+    y_test = test_df[:]['target']
+    x_test = test_df.drop('target',axis =1)
         
         
-        train = pd.concat([x_train, y_train], axis = 1)
-        test = pd.concat([x_test, y_test], axis = 1)
+    train = pd.concat([x_train, y_train], axis = 1)
+    test = pd.concat([x_test, y_test], axis = 1)
 
-    return train, test
+    return np.array(train), np.array(test)
 
 
 def plot_loss(logged_loss):
@@ -305,30 +344,71 @@ def plot_loss(logged_loss):
 def main():
     ## Gather arguments and se tthe seed
     args = manual_args()
-    set_seed(args)
 
-    ## Get data - np.arrays
-    train_data, test_data = prep_data(args)
+    results = []
+    with open('results_sweep.txt', 'w') as f:
+        for i in range(3):
+            set_seed(args)
+            ## Get data - np.arrays
+            train_data, test_data = prep_data(args)
+            ## Do PCA
+            train_data, test_data = get_reduced_data(train_data, test_data)
 
-    results_list = []
+            ## Run all of the models at the base level and return train/test accuracy
+            ix = 0
+            for model_type, model_name in zip(MODELS[3], MODEL_NAMES[3]):
+                model, tr_acc = train(model_type, train_data)
+                eval_acc = evaluate(model, test_data)['accuracy']
 
-    with open('results.txt', 'w') as f:
-    
-        ## Run all of the models at the base level and return train/test accuracy
-        for model_type, model_name in zip(MODELS, MODEL_NAMES):
-            model, tr_acc = train(model_type, train_data)
-            results = evaluate(model, test_data)
+                if i == 0:
+                    results.append([tr_acc, eval_acc])
+                else:
+                    results[ix][0] += tr_acc
+                    results[ix][1] += eval_acc
+                ix += 1
+            
+            ## Train and evaluate the nn
+            tr_acc, tr_loss, eval_acc, loss_logged = neural_net(args, train_data,
+                                                                test_data)
+            if i == 0:
+                results.append([tr_acc, eval_acc])
+            else:
+                results[ix][0] += tr_acc
+                results[ix][1] += eval_acc
 
-            print(model_name, 'Train Accuracy:', tr_acc, 'Evaluation:', results, file=f)
+            ## reset seed
+            args.seed += 1
 
-        ## Train and evaluate the nn
-        tr_acc, tr_loss, eval_acc, loss_logged = neural_net(args, train_data, test_data)
-
-        print('NN Train Accuracy:', tr_acc, 'Evaluation:', eval_acc, 'Train Loss:',
-              tr_loss, file=f)
-    
-    plot_loss(loss_logged)
-    
+        print(np.array(results)/3, file=f)
+   
     ## Now select the best models manually and train hyperparameters
 
-main()
+def sweep_hyperparams():
+    args = manual_args()
+
+    results = []
+    with open('results_sweep.txt', 'w') as f:
+        for i in range(3):
+            set_seed(args)
+            ## Get data - np.arrays
+            train_data, test_data = prep_data(args)
+            ## Do PCA
+            train_data, test_data = get_reduced_data(train_data, test_data)
+
+            ## Train and evaluate the nn
+            tr_acc, tr_loss, eval_acc, loss_logged = neural_net(args, train_data,
+                                                                test_data)
+            if i == 0:
+                results.append([tr_acc, eval_acc])
+            else:
+                results[0][0] += tr_acc
+                results[0][1] += eval_acc
+
+            args.seed += 1
+        print(np.array(results)/3, file=f)
+        print(np.array(results)/3)
+   
+    ## Now select the best models manually and train hyperparameters
+
+sweep_hyperparams()   
+#main()

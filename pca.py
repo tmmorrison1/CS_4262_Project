@@ -13,14 +13,10 @@ from train import fetch_team_stats
 import pandas as pd
 import numpy as np
 
-
-
 #data = data values of game info
 #num_components = number of principle components
 #returns new data frame with principle components of the team data extracted
-def run_pca(data , num_components):
-    
-    
+def run_pca(data, num_components):
     
     data_vals = data
     
@@ -60,4 +56,3 @@ def run_pca(data , num_components):
     print('Total Explained Variance: ' + str(sum(lol_pca.explained_variance_ratio_))+' for '+str(num_components)+' principle components')
     
     return finalDf
-
