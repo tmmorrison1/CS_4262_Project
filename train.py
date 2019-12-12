@@ -23,7 +23,7 @@ from sklearn.model_selection import cross_val_score, GridSearchCV
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler 
 
-
+from pca import run_pca
 
 MODELS = (LogisticRegression, RandomForestClassifier, GradientBoostingClassifier,
           SVC, LinearSVC)
@@ -146,6 +146,11 @@ def train(model_type, train_data):
     return model
 
 
+
+
+
+
+
 def train_models(args, train_data, test_data):
     for model_type in MODELS:
         model = train(model_type, train_data)
@@ -233,9 +238,39 @@ def dumb_model(data):
     return results
 
 
+#data = data values of game info
+#num_components = number of principle components
+#returns new data frame with principle components of the team data extracted
 
 
+def get_reduced_data():
     
+    num_pcs = [4,6,8]
+    complete_data = np.concatenate((train_data,test_data),axis =0)
+    
+    
+    for num_pc in num_pcs:
+        pca_df = run_pca(complete_data,num_pc)
+        
+        train_df = pca_df[:3000][:]
+        test_df = pca_df[3000:][:]
+        
+        y_train = train_df[:]['target']
+        x_train = train_df.drop('target',axis =1)
+        
+        y_test = test_df[:]['target']
+        x_test = test_df.drop('target',axis =1)
+        
+        
+        train = pd.concat([x_train, y_train], axis = 1)
+        test = pd.concat([x_test, y_test], axis = 1)
+        
+        return train,test
+        
+        #model = LogisticRegression()
+        #model.fit(x_train,y_train)
+        #print('Model Score: ' + str(model.score(x_test,y_test)))
+
 
 
 
@@ -248,8 +283,8 @@ def main():
     set_seed(args)
 
     ## Get data - np.arrays
-    train_data, test_data = prep_data(args)
-
+    
+    
     ## Model Selection - FIXME: This needs to be based on arguments
     ## FIXME: Need a robust global parameter of different models that can be selected
     
