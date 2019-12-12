@@ -2,7 +2,7 @@
 
 ## imports
 import pandas as pd
-import matplotlib as plt
+import matplotlib.pyplot as plt
 import sys
 import numpy as np
 import argparse
@@ -32,13 +32,13 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.model_selection import cross_val_score, GridSearchCV
 from sklearn.decomposition import PCA
-from sklearn.preprocessing import StandardScaler 
-
+from sklearn.preprocessing import StandardScaler
 
 from sklearn.metrics import accuracy_score
 
 MODELS = (LogisticRegression, RandomForestClassifier, GradientBoostingClassifier,
           SVC)
+MODEL_NAMES = ('LR', 'RF', 'XBoost', 'SVM')
 
 team_data = None
 
@@ -93,18 +93,8 @@ def fetch_game_stats(team1,team2):
 def fetch_team_stats(team_keys):
     ts = team_data.loc[team_keys]
     return np.array([ts.kills, ts.inhibs, ts.dragons, ts.goldDiff,
-                     ts.barons, ts.heralds]).T
-
-
-def sample_champions(team_key1, team_key2):
-    ## FIXME: we did no analysis of this before but if we appended the information
-    ## per team to the team_data collection function then we could easily implement an
-    ## algorithm here that does the work of simulating champion bans/selections.
-
-    ## TODO: Aggregate champion data and bans
-    ## TODO: Write sampler that simulates pregame champion stuff
-
-    return
+                     ts.barons, ts.heralds, ts.time_to_first_tower, ts.time_to_first_herald,
+                     ts.time_to_first_dragon]).T
 
 
 def evaluate(model, test_data):
@@ -157,7 +147,7 @@ def train(model_type, train_data):
     return model, tr_acc
 
 
-def neural_net(args, train_data):
+def neural_net(args, train_data, test_data):
     X = train_data[:, (1,2)]
     y = train_data[:, 3].astype('int')
     
@@ -181,7 +171,7 @@ def neural_net(args, train_data):
     
     model = LOL_model(X_team.size()[1])
     model.train()
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
     for epoch in train_it:
         epoch_it = tqdm(train_loader, desc='Iteration')
@@ -193,27 +183,48 @@ def neural_net(args, train_data):
             loss.backward()
 
             tr_loss += loss.item()
-            loss_logged.append(loss.item)
+            loss_logged.append(loss.item())
 
             optimizer.step()
             model.zero_grad()
             g_step += 1
-
+            
             acc_per_it = np.concatenate((acc_per_it,
                                         np.argmax(outputs[1].detach().numpy(), axis=1)),
                                         axis=0)
             labels.extend(batch[1].detach().numpy())
+            
+    tr_acc = accuracy_score(labels, acc_per_it)
 
-    print(accuracy_score(labels, acc_per_it))
+    ## Now compute accuracy
+    model.eval()
+
+    test_X = torch.Tensor(fetch_game_stats(test_data[:,1], test_data[:,2]))
+    test_y = torch.Tensor(test_data[:,3].astype("int"))
+
+    test_set = TensorDataset(test_X, test_y)
+
+    eval_sampler = SequentialSampler(test_set)
+    eval_loader = DataLoader(test_set, sampler=eval_sampler,
+                             batch_size=args.batch_size)
+
+    eval_it = tqdm(eval_loader, desc='Iteration')
+
+    test_acc = []
+    labels = []
+    for step, batch in enumerate(eval_it):
+        outputs = model(batch[0])
+
+        test_acc = np.concatenate((test_acc,
+                                   np.argmax(outputs.detach().numpy(), axis=1)),
+                                  axis=0)
+        labels.extend(batch[1].detach().numpy())
+
+    test_acc = accuracy_score(labels, test_acc)
+
+    return tr_acc, tr_loss, test_acc, loss_logged
 
 
-def train_models(args, train_data, test_data):
-    for it,model_type in enumerate(MODELS):
-        model, tr_acc = train(model_type, train_data)
-        results = evaluate(model, test_data)
-        print(it, tr_acc, results)
-        input()
-        
 ## Used for when not running experiments from command line
 def manual_args():
     parser = argparse.ArgumentParser()
@@ -228,31 +239,6 @@ def manual_args():
     args.batch_size = 64
     args.epochs = 5
     return args
-
-## Builds the arguments from a bash file and stores in args
-def parse_args():
-    parser = argparse.ArgumentParser()
-
-    ## add our arguments
-    ## Required arguments
-    parser.add_argument('--game_data', type=str, required=True,
-                        help='File of games played (training data)')
-    parser.add_argument('--output_dir', type=str, required=True,
-                        help='Dir where output data will be stored, to overwrite use --overwrite_output_dir')
-
-    ## Optional arugments
-    parser.add_argument('--team_data', default='', type=str,
-                        help='File of team tabular data')
-    parser.add_argument('--seed', default=69, type=int,
-                        help='set the seed for experiments')
-    parser.add_argument('--overwrite_output_dir', action='store_true',
-                        help='Set this flag to overwrite the results dir')
-    parser.add_argument('--tt_split', default=.8, type=float,
-                        help='Percentage of train data from original game data')
-    parser.add_argument('--use_differentials', action='store_true',
-                        help='Use difference in game stats rather than raw')
-    
-    return parser.parse_args()
 
 
 def dumb_model(args, test_data):
@@ -278,16 +264,15 @@ def dumb_model(args, test_data):
     results['accuracy'] = accuracy
     results['log loss']  = log_loss
     return results
-
-
-
-
     
 
-
-
-
-
+def plot_loss(logged_loss):
+    plt.plot(logged_loss)
+    plt.title('NN Loss')
+    plt.ylabel('Loss')
+    plt.xlabel('Iterations')
+    plt.grid(alpha=.3)
+    plt.savefig('NN_loss_plot.png')
 
 def main():
     ## Gather arguments and se tthe seed
@@ -297,13 +282,25 @@ def main():
     ## Get data - np.arrays
     train_data, test_data = prep_data(args)
 
-    ## Model Selection - FIXME: This needs to be based on arguments
-    ## FIXME: Need a robust global parameter of different models that can be selected
+    results_list = []
+
+    with open('results.txt', 'w') as f:
     
-    tr_acc = train(MODELS[4], train_data) 
+        ## Run all of the models at the base level and return train/test accuracy
+        for model_type, model_name in zip(MODELS, MODEL_NAMES):
+            model, tr_acc = train(model_type, train_data)
+            results = evaluate(model, test_data)
 
+            print(model_name, 'Train Accuracy:', tr_acc, 'Evaluation:', results, file=f)
 
+        ## Train and evaluate the nn
+        tr_acc, tr_loss, eval_acc, loss_logged = neural_net(args, train_data, test_data)
 
-if __name__ == '__main__':
-    main()
+        print('NN Train Accuracy:', tr_acc, 'Evaluation:', eval_acc, 'Train Loss:',
+              tr_loss, file=f)
+    
+    plot_loss(loss_logged)
+    
+    ## Now select the best models manually and train hyperparameters
 
+main()
