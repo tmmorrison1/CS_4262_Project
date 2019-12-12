@@ -238,10 +238,6 @@ def dumb_model(data):
     return results
 
 
-#data = data values of game info
-#num_components = number of principle components
-#returns new data frame with principle components of the team data extracted
-
 
 def get_reduced_data():
     
@@ -250,7 +246,7 @@ def get_reduced_data():
     
     
     for num_pc in num_pcs:
-        pca_df = run_pca(complete_data,num_pc)
+        ex_var, pca_df = run_pca(complete_data,num_pc)
         
         train_df = pca_df[:3000][:]
         test_df = pca_df[3000:][:]
