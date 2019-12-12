@@ -8,7 +8,7 @@ Created on Wed Dec 11 17:26:41 2019
 
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler 
-
+from train import fetch_team_stats
 
 import pandas as pd
 import numpy as np
@@ -18,7 +18,7 @@ import numpy as np
 #data = data values of game info
 #num_components = number of principle components
 #returns new data frame with principle components of the team data extracted
-def run_pca(data, num_components):
+def run_pca(data , num_components):
     
     
     
@@ -37,6 +37,9 @@ def run_pca(data, num_components):
     
     y_df = pd.DataFrame(data = y_data)
  
+    
+    y_df.rename(columns = {0:'target'},inplace = True)
+    
     x_data = StandardScaler().fit_transform(x_data)
     
     lol_pca = PCA(n_components=num_components)
@@ -56,4 +59,5 @@ def run_pca(data, num_components):
     print() 
     print('Total Explained Variance: ' + str(sum(lol_pca.explained_variance_ratio_))+' for '+str(num_components)+' principle components')
     
-    #return finalDf
+    return finalDf
+

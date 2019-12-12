@@ -35,6 +35,9 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
 from sklearn.metrics import accuracy_score
+from sklearn.preprocessing import StandardScaler 
+
+from pca import run_pca
 
 MODELS = (LogisticRegression, RandomForestClassifier, GradientBoostingClassifier,
           SVC)
@@ -264,7 +267,32 @@ def dumb_model(args, test_data):
     results['accuracy'] = accuracy
     results['log loss']  = log_loss
     return results
+
+
+def get_reduced_data(train_data, test_data):
+    num_pcs = [4,6,8]
+    complete_data = np.concatenate((train_data,test_data),axis =0)
     
+    for num_pc in num_pcs:
+        pca_df = run_pca(complete_data, num_pc)
+
+        breakpoint()
+        
+        train_df = pca_df[:3000][:]
+        test_df = pca_df[3000:][:]
+        
+        y_train = train_df[:]['target']
+        x_train = train_df.drop('target',axis =1)
+        
+        y_test = test_df[:]['target']
+        x_test = test_df.drop('target',axis =1)
+        
+        
+        train = pd.concat([x_train, y_train], axis = 1)
+        test = pd.concat([x_test, y_test], axis = 1)
+
+    return train, test
+
 
 def plot_loss(logged_loss):
     plt.plot(logged_loss)
